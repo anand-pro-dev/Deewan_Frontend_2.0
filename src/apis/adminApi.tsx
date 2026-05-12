@@ -197,6 +197,18 @@ const getDeviceDataWithTimeDateApi = async (deviceId: string, start: string, end
   return data;
 };
 
+
+const getDeviceConsumptionApi = async (
+  deviceId: string,
+  period: 'today' | 'yesterday' | 'week' | 'month' | 'last30days' | 'sixMonths' | 'completeYear',
+  highlight?: 'min' | 'max'
+): Promise<any> => {
+  const url = `/device/consumption/${deviceId}?period=${period}${highlight ? `&highlight=${highlight}` : ''}`;
+  const data = await getData<any>(url);
+  return data;
+};
+
+
 const adminUpdateProfileApi = async (deviceId: string, payload: any): Promise<any> => {
   const url = `/auth/user/updateProfileByAdmin/${deviceId}`;
   const data = await postDataWithToken<any>(url, payload);
@@ -221,7 +233,7 @@ const uploadExcelApi = async (id: string, file: File) => {
 };
 
 export {
-  signInEmPPassApi, adminSearchUserApi, signInEmOTPApi, verifiOTPApi, adminAllUserApi,getDeviceLogDataApi,
+  signInEmPPassApi, adminSearchUserApi, signInEmOTPApi, verifiOTPApi, adminAllUserApi,getDeviceLogDataApi, getDeviceConsumptionApi,
   adminAllAdminApi, adminGetAllParameterApi, adminAddParameterApi, adminUpdateUserDeviceApi,
   adminUpdateParameterApi, adminDeleteUserDeviceApi, updateUserProfileApi, adminDeleteUserApi,
   adminGetDeviceDataApi, getDeviceDataWithTimeDateApi, adminAddUserApi, adminActiveDeactiveApi,

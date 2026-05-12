@@ -7,7 +7,7 @@ export default function Avatars() {
   return (
     <>
       <PageMeta
-        title="React.js Avatars Dashboard | Deewan Dashboard"
+        title="Avatars Dashboard | Deewan Dashboard"
         description="   Avatars Dashboard page for Deewan DashBoard "
       />
       <PageBreadcrumb pageTitle="Avatars" />

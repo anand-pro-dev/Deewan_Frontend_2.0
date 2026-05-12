@@ -7,7 +7,7 @@ export default function LineChart() {
   return (
     <>
       <PageMeta
-        title="React.js Chart Dashboard | Deewan Dashboard"
+        title="Chart Dashboard | Deewan Dashboard"
         description="   Chart Dashboard page for Deewan DashBoard "
       />
       <PageBreadcrumb pageTitle="Line Chart" />

@@ -21,10 +21,14 @@ import {
   FileSignal,
   ArrowLeftRight,
   User,
+  SearchSlashIcon,
+  SearchSlash,
+  SearchIcon,
 } from "lucide-react";
 
 import { useSidebar } from "../context/SidebarContext";
 import { useAppSelector } from "../store/hooks"; // ✅ your typed hook
+import SearchResults from "./SearchResults";
 
 type NavItem = {
   name: string;
@@ -59,6 +63,7 @@ const navItems: NavItem[] = [
     path: "/allHttpDeviceslist",
     roles: ["admin", "superAdmin"],
   },
+ 
   {
     icon: <Cpu />,
     name: "Devices",

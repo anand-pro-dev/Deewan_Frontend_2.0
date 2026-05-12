@@ -9,7 +9,7 @@ export default function UserProfiles() {
   return (
     <>
       <PageMeta
-        title="React.js Profile DashboardDeewan DashBoard"
+        title="DashboardDeewan DashBoard"
         description="   Profile Dashboard page for Deewan DashBoard "
       />
       <PageBreadcrumb pageTitle="Profile" />

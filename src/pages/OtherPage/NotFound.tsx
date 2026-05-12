@@ -6,7 +6,7 @@ export default function NotFound() {
   return (
     <>
       <PageMeta
-        title="React.js 404 Dashboard | Deewan Dashboard"
+        title="404 Dashboard | Deewan Dashboard"
         description="   404 Dashboard page for Deewan DashBoard "
       />
       <div className="relative flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden z-1">

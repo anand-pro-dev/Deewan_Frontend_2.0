@@ -13,6 +13,7 @@ import {
   getDeviceDataWithTimeDateApi,
   deleteDeviceDataLog,
   uploadExcelApi,
+  getDeviceConsumptionApi,
 } from "../../apis/adminApi";
 import {
   AreaChart, Area,
@@ -279,6 +280,92 @@ const DeviceDataDetails = () => {
   const shouldFetchLogsRef          = useRef(true);
 
   const { showAlert } = useAlertBox();
+
+
+  //  for downloading the consuption 
+const [consumptionPeriod, setConsumptionPeriod] = useState<'today' | 'yesterday' | 'week' | 'month' | 'last30days' | 'sixMonths' | 'completeYear'>('week');
+const [consumptionChartLoading, setConsumptionChartLoading] = useState(false);
+const [consumptionHighlight, setConsumptionHighlight] = useState<'min' | 'max' | null>(null);
+ 
+
+ const fmtDateDMY = (d: Date): string =>
+  `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+
+const handleConsumptionDownload = async () => {
+  if (!deviceId) return;
+  setConsumptionChartLoading(true);
+  try {
+    const res = await getDeviceConsumptionApi(
+      deviceId,
+      consumptionPeriod,
+      consumptionHighlight ?? undefined,
+    );
+
+    if (!res.success) {
+      toast.error("Failed to fetch consumption data");
+      return;
+    }
+
+    const fieldName = res.data?.consumptionField ?? "Value";
+    const unit      = consumptionUnit;
+    const today     = fmtDateDMY(new Date());
+    const devLabel  = deviceData?.deviceName ?? deviceId;
+
+    // ── highlight mode ────────────────────────────────────────────────
+    if (consumptionHighlight) {
+      const rows: any[] = res.data?.[consumptionHighlight] ?? [];
+      if (!rows.length) { toast.error("No data to export"); return; }
+
+      const excelData = rows.map((row: any) => ({
+        Date:                                                        row.date,
+        [`First Reading ${fieldName}${unit ? ` (${unit})` : ''}`]:  row.firstReading  ?? "—",
+        [`Latest Reading ${fieldName}${unit ? ` (${unit})` : ''}`]: row.latestReading ?? "—",
+        [`${consumptionHighlight === 'min' ? 'Min' : 'Max'} ${fieldName}${unit ? ` (${unit})` : ''}`]:
+          row.consumption ?? "—",
+        "Time of Reading": row.timestamp
+          ? new Date(row.timestamp).toLocaleString("en-GB", { hour12: true })
+          : "—",
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      ws["!cols"] = Object.keys(excelData[0]).map(k => ({ wch: Math.max(k.length + 2, 18) }));
+      XLSX.utils.book_append_sheet(wb, ws, `${consumptionHighlight}_consumption`);
+      XLSX.writeFile(
+        wb,
+        `${deviceId}_${devLabel}_${consumptionHighlight}_${consumptionPeriod}_${today}.xlsx`,
+      );
+      toast.success(`${consumptionHighlight === 'min' ? 'Min' : 'Max'} consumption exported`);
+      return;
+    }
+
+    // ── no highlight ──────────────────────────────────────────────────
+    const rows: any[] = res.data?.data ?? [];
+    if (!rows.length) { toast.error("No data to export"); return; }
+
+    const excelData = rows.map((row: any) => ({
+      Date:                                                        row.date,
+      [`First Reading ${fieldName}${unit ? ` (${unit})` : ''}`]:  row.firstReading  ?? "—",
+      [`Latest Reading ${fieldName}${unit ? ` (${unit})` : ''}`]: row.latestReading ?? "—",
+      [`Consumption ${fieldName}${unit ? ` (${unit})` : ''}`]:    row.consumption   ?? "—",
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    ws["!cols"] = Object.keys(excelData[0]).map(k => ({ wch: Math.max(k.length + 2, 18) }));
+    XLSX.utils.book_append_sheet(wb, ws, "consumption");
+    XLSX.writeFile(
+      wb,
+      `${deviceId}_${devLabel}_consumption_${consumptionPeriod}_${today}.xlsx`,
+    );
+    toast.success("Consumption exported");
+
+  } catch {
+    toast.error("Export failed");
+  } finally {
+    setConsumptionChartLoading(false);
+  }
+};
 
   const decimalPlaces = deviceData ? computeDecimalPlaces(deviceData.decimalPoints) : 2;
   const formatDecimal = useCallback(makeFormatDecimal(decimalPlaces), [decimalPlaces]);
@@ -796,6 +883,137 @@ const DeviceDataDetails = () => {
             </div>
           </motion.div>
         )}
+
+
+
+ {deviceData?.consumptionShow === true && (
+  <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
+
+    {/* ── Header ───────────────────────────────────────────────────── */}
+    <div className="flex items-center gap-2 mb-5">
+      <span className="text-sm">💧</span>
+      <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+        Consumption Export
+      </span>
+      <div className="flex-1 h-px bg-gradient-to-r from-indigo-100 dark:from-indigo-700 to-transparent" />
+    </div>
+
+    {/* ── Step 1: Period ───────────────────────────────────────────── */}
+    <div className="mb-5">
+      <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+        1 — Period
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            { value: 'today',      label: 'Today'        },
+            { value: 'yesterday',  label: 'Yesterday'    },
+            { value: 'week',       label: 'Week'         },
+            { value: 'month',      label: 'Month'        },
+            { value: 'last30days', label: 'Last 30 days' },
+            { value: 'sixMonths',  label: '6 Months'     },
+            { value: 'completeYear',  label: 'Complete Year' },
+          ] as const
+        ).map((p) => (
+          <button
+            key={p.value}
+            onClick={() => {
+              setConsumptionPeriod(p.value);
+              setConsumptionHighlight(null);   // reset highlight on period change
+            }}
+            className={`text-xs font-bold py-1.5 px-3 rounded-xl transition-all border
+              ${consumptionPeriod === p.value
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500'
+              }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* ── Step 2: Highlight (optional toggle) ──────────────────────── */}
+    <div className="mb-5">
+      <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+        2 — Highlight&nbsp;
+        <span className="normal-case font-normal text-gray-300 dark:text-gray-600">
+          (optional)
+        </span>
+      </label>
+      <div className="flex gap-2">
+        {(
+          [
+            {
+              value:       'min' as const,
+              label:       'Min',
+              activeClass: 'bg-amber-500 text-white border-amber-500',
+            },
+            {
+              value:       'max' as const,
+              label:       'Max',
+              activeClass: 'bg-orange-600 text-white border-orange-600',
+            },
+          ]
+        ).map(({ value, label, activeClass }) => (
+          <button
+            key={value}
+            onClick={() =>
+              setConsumptionHighlight((prev) => (prev === value ? null : value))
+            }
+            className={`text-xs font-bold py-1.5 px-4 rounded-xl transition-all border
+              ${consumptionHighlight === value
+                ? activeClass
+                : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500'
+              }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5">
+        {consumptionHighlight === 'min' && 'Exports the lowest reading per time bucket'}
+        {consumptionHighlight === 'max' && 'Exports the highest reading per time bucket'}
+        {!consumptionHighlight        && 'No highlight — exports total consumption (last − first) per bucket'}
+      </p>
+    </div>
+
+    {/* ── Step 3: Download ─────────────────────────────────────────── */}
+    <div>
+      <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+        3 — Download
+      </label>
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={handleConsumptionDownload}
+        disabled={consumptionChartLoading}
+        className={`flex items-center gap-2 text-white text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed
+          ${consumptionHighlight === 'min' ? 'bg-amber-500 hover:bg-amber-600'
+          : consumptionHighlight === 'max' ? 'bg-orange-600 hover:bg-orange-700'
+          : 'bg-indigo-600 hover:bg-indigo-700'}`}
+      >
+        {consumptionChartLoading ? (
+          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+        )}
+        {consumptionHighlight === 'min' && `Download Min — ${consumptionPeriod}`}
+        {consumptionHighlight === 'max' && `Download Max — ${consumptionPeriod}`}
+        {!consumptionHighlight         && `Download Consumption — ${consumptionPeriod}`}
+      </motion.button>
+
+      {/* filename preview */}
+      <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5 font-mono">
+        {`${deviceId}_${deviceData?.deviceName ?? ''}_${consumptionHighlight ?? 'consumption'}_${consumptionPeriod}_${fmtDateDMY(new Date())}.xlsx`}
+      </p>
+    </div>
+
+  </div>
+)}
 
         {/* Filter & Export */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}

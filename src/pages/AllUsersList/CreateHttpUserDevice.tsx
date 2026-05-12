@@ -283,6 +283,7 @@ const DeviceCreateFotHttp = () => {
       currentStatus: deviceData.currentStatus,
       dataYmax: deviceData.dataYmax,
       consumptionShow: deviceData.consumptionShow,
+      consumptionValue: deviceData.consumptionValue,
       dataWithPlatform: deviceData.dataWithPlatform,
       decimalPoints: deviceData.decimalPoints,
       dataParameterFilter: deviceData.dataParameterFilter,
@@ -297,11 +298,17 @@ const DeviceCreateFotHttp = () => {
       }),
     };
 
-    Object.entries(fieldsToSend).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    });
+// Replace the generic Object.entries loop with this:
+Object.entries(fieldsToSend).forEach(([key, value]) => {
+  if (value === undefined || value === null) return;
+
+  if (Array.isArray(value)) {
+    // ✅ Arrays must be appended as multiple entries or JSON
+    value.forEach((item) => formData.append(key, String(item)));
+  } else {
+    formData.append(key, String(value));
+  }
+});
 
     if (deviceData.deviceImage instanceof File) {
       formData.append('deviceImage', deviceData.deviceImage);

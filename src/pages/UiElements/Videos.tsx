@@ -10,7 +10,7 @@ export default function Videos() {
   return (
     <>
       <PageMeta
-        title="React.js Videos Tabs | Deewan Dashboard"
+        title="Videos Tabs | Deewan Dashboard"
         description="   Videos page for Deewan DashBoard "
       />
       <PageBreadcrumb pageTitle="Videos" />

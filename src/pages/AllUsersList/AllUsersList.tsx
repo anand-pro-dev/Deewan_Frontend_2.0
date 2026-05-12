@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MoreVertical, Eye, Edit2, Mail, Trash2, X, UserPlus, Download, Power, MapPin } from "lucide-react";
+import { MoreVertical, Eye, Edit2, Mail, Trash2, X, UserPlus, Download, Power, MapPin, Search } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminAddUserApi, adminActiveDeactiveApi, adminDeleteUserApi, adminAllUserApi } from '../../apis/adminApi';
@@ -12,6 +12,7 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
+devices: string[];
   phone: string;
   city: string;
   orgnization: string;
@@ -36,6 +37,10 @@ const AllUsersTable = () => {
   const navigate = useNavigate();
 
   const authUser = useAppSelector((state) => state.auth.user);
+
+  const [searchText, setSearchText] = useState<string>(() => {
+  return localStorage.getItem('userTableSearch') || '';
+});
 
   const getInitialFormData = (): AddUserFormData => ({
     adminId: authUser?._id || '',
@@ -74,14 +79,24 @@ const AllUsersTable = () => {
     fetchUsers();
   }, []);
 
-  useEffect(() => {
-    let filtered = users;
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((user) => user.status === statusFilter);
-    }
-    setFilteredUsers(filtered);
-    setCurrentPage(1);
-  }, [statusFilter, users]);
+useEffect(() => {
+  localStorage.setItem('userTableSearch', searchText);
+  const q = searchText.toLowerCase().trim();
+  let filtered = users;
+  if (statusFilter !== "all") {
+    filtered = filtered.filter((u) => u.status === statusFilter);
+  }
+  if (q) {
+  filtered = filtered.filter((u) =>
+    [u.firstName, u.lastName, u.email, u.phone, u.city, u.orgnization, u._id]
+      .some((v) => v?.toLowerCase().includes(q))
+    ||
+    u.devices?.some((deviceId: string) => deviceId?.toLowerCase().includes(q))
+  );
+}
+  setFilteredUsers(filtered); 
+  setCurrentPage(1);
+}, [statusFilter, searchText, users]);
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -242,13 +257,36 @@ const AllUsersTable = () => {
         transition={{ duration: 0.5 }}
         className="max-w-7xl mx-auto"
       >
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            User Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage your users and their access</p>
-        </div>
+ {/* Header */}
+<div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  <div>
+    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
+      User Management
+    </h1>
+    <p className="text-gray-600 dark:text-gray-400">Manage your users and their access</p>
+  </div>
+
+  <div className="relative w-full sm:w-90">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+    <input
+      type="text"
+      placeholder="Search Complete Access...."
+      value={searchText}
+      onChange={(e) => setSearchText(e.target.value)}
+      className="w-full pl-9 pr-9 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all outline-none shadow-sm"
+    />
+    {searchText && (
+      <button
+        onClick={() => setSearchText('')}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    )}
+  </div>
+</div>
+
+       
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

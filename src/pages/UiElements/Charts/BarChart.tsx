@@ -7,7 +7,7 @@ export default function BarChart() {
   return (
     <div>
       <PageMeta
-        title="React.js Chart Dashboard | Deewan Dashboard"
+        title="Chart Dashboard | Deewan Dashboard"
         description="   Chart Dashboard page for Deewan DashBoard "
       />
       <PageBreadcrumb pageTitle="Bar Chart" />

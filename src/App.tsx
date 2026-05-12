@@ -90,6 +90,7 @@ export default function App() {
 
             <Route path="/SearchResults" element={<SearchResults />} />
             
+            
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/avatars" element={<Avatars />} />
             <Route path="/badge" element={<Badges />} />

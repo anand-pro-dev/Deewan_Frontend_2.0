@@ -7,7 +7,7 @@ export default function BasicTables() {
   return (
     <>
       <PageMeta
-        title="React.js Basic Tables DashboardDeewan DashBoard"
+        title="DashboardDeewan DashBoard"
         description="   Basic Tables Dashboard page for Deewan DashBoard "
       />
       <PageBreadcrumb pageTitle="Basic Tables" />

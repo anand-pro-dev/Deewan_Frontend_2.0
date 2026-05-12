@@ -42,7 +42,7 @@ const  deleteMqttDeviceDetails = async (deviceId:any): Promise<any> => {
 
 
 const controlDigitalPin = async (deviceId:any , send : any): Promise<any> => {
-  const data = await postDataWithToken<any>(`/mqtt/${deviceId}/led/control`, send ); 
+  const data = await postDataWithToken<any>(`/mqtt/${deviceId}/channel/control`, send ); 
   return data;
 };
  
@@ -75,6 +75,34 @@ const addMqttSchedule = async   (outputName: any, timeData: any, deviceId : any)
 };
 
 
+const getChannelHistory = async (
+  deviceId: string,
+  channelName: string,
+  startDate?: string,
+  endDate?: string
+): Promise<any> => {
+  const params = new URLSearchParams();
+  if (startDate) params.set("startDate", startDate);
+  if (endDate)   params.set("endDate", endDate);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return await getDataWithToken<any>(`mqtt/${deviceId}/history/channel/${channelName}${query}`);
+};
+
+const getSensorHistory = async (
+  deviceId: string,
+  sensorName: string,
+  startDate?: string,
+  endDate?: string
+): Promise<any> => {
+  const params = new URLSearchParams();
+  if (startDate) params.set("startDate", startDate);
+  if (endDate)   params.set("endDate", endDate);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return await getDataWithToken<any>(`mqtt/${deviceId}/history/sensor/${sensorName}${query}`);
+};
+ 
+
+
 const deteteMqttSchedule = async   ( deviceId : any, outputName: any,  selectIndex: any): Promise<any> =>  {
  const data = await deleteDataWithToken<any>(`mqtt/schedule/device/${deviceId}/output/${outputName}/${selectIndex}`);
   return data;
@@ -82,6 +110,7 @@ const deteteMqttSchedule = async   ( deviceId : any, outputName: any,  selectInd
 
 
 
-export { uploadDeviceFile, getMqttDeviceDetails, deleteDeviceFile ,controlDigitalPin,  getAllMqttDevices , searchDevice , createMqttDevice,
+export { uploadDeviceFile, getMqttDeviceDetails, deleteDeviceFile ,controlDigitalPin,  getAllMqttDevices ,
+   searchDevice , createMqttDevice, getChannelHistory, getSensorHistory,
    getUserAllMqttDevices, updateMqttDevice , addMqttSchedule, deteteMqttSchedule , deleteMqttDeviceDetails };
 

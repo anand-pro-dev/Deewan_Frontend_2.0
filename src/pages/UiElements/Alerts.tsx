@@ -7,7 +7,7 @@ export default function Alerts() {
   return (
     <>
       <PageMeta
-        title="React.js Alerts Dashboard | Deewan Dashboard"
+        title="Alerts Dashboard | Deewan Dashboard"
         description="   Alerts Dashboard page for Deewan DashBoard "
       />
       <PageBreadcrumb pageTitle="Alerts" />

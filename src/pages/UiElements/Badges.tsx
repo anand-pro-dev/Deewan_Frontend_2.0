@@ -8,7 +8,7 @@ export default function Badges() {
   return (
     <div>
       <PageMeta
-        title="React.js Badges Dashboard | Deewan Dashboard"
+        title="Badges Dashboard | Deewan Dashboard"
         description="   Badges Dashboard page for Deewan DashBoard "
       />
       <PageBreadcrumb pageTitle="Badges" />

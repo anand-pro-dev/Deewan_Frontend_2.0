@@ -21,14 +21,12 @@ import {
   FileSignal,
   ArrowLeftRight,
   User,
-  SearchSlashIcon,
-  SearchSlash,
-  SearchIcon,
+ 
 } from "lucide-react";
 
 import { useSidebar } from "../context/SidebarContext";
 import { useAppSelector } from "../store/hooks"; // ✅ your typed hook
-import SearchResults from "./SearchResults";
+ 
 
 type NavItem = {
   name: string;
@@ -61,7 +59,7 @@ const navItems: NavItem[] = [
     icon: <Cpu />,
     name: "All Devices",
     path: "/allHttpDeviceslist",
-    roles: ["admin", "superAdmin"],
+    roles: ["admin", "superAdmin", "subAdmin"],
   },
  
   {
@@ -74,25 +72,25 @@ const navItems: NavItem[] = [
     icon: <Activity/>,
     name: "All Other Connect Devices",
     path: "/allOtherPlateFormDevice",
-    roles: ["admin", "superAdmin"],
+    roles: ["admin", "superAdmin", "subAdmin"],
   },   
   {
     icon: <AlignCenterVertical/>,
     name: "HWRA",
     path: "/HwraPlateFormDevices",
-    roles: ["admin", "superAdmin"],
+    roles: ["admin", "superAdmin", "subAdmin"],
   },
   {
     icon: <Codepen/>,
     name: "DPCC",
     path: "/DpccrPlateFormDevices",
-    roles: ["admin", "superAdmin"],
+    roles: ["admin", "superAdmin", "subAdmin"],
   },
   {
     icon: <SlidersHorizontal />,
     name: "Parameter",
     path: "/parameters",
-    roles: ["admin", "superAdmin"],
+    roles: ["admin", "superAdmin", "subAdmin"],
   },
   {
     icon: <SlidersHorizontal />,

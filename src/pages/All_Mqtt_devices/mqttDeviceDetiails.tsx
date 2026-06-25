@@ -4,7 +4,7 @@ import {
   Calendar, ChevronDown, ChevronUp, Zap, TrendingUp, RefreshCw, Database,
   BarChart2
 } from "lucide-react";
-import { getMqttDeviceDetails, controlDigitalPin, addMqttSchedule, deteteMqttSchedule , getChannelHistory, getSensorHistory} from "../../apis/mqtt_api";
+import { getMqttDeviceDetails, controlDigitalPin, addMqttSchedule, deteteMqttSchedule ,  getSensorHistory} from "../../apis/mqtt_api";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -673,7 +673,7 @@ const handleDownload = useCallback(async () => {
     const end   = dlEndDate   ? new Date(dlEndDate).toISOString()   : undefined;
 
     const res = dlType === "channel"
-      ? await getChannelHistory(device.deviceId, dlName, start, end)
+      ? await getChannelHistory(device.deviceId )
       : await getSensorHistory(device.deviceId, dlName, start, end);
 
     if (!res.success) throw new Error(res.message || "API returned failure");

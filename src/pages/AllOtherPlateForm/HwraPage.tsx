@@ -107,7 +107,8 @@ const PlatformDeviceCard = ({ device, index, onEdit, onViewDetails , adminView ,
               
 
               {/* Edit Button - Only visible on hover */}
-              <motion.button
+
+    {isSuperAdmin && ( <motion.button
   initial={{ scale: 0.8 }}
   className="w-10 h-10 bg-white/20 backdrop-blur-sm
              hover:bg-white/30 rounded-xl
@@ -118,9 +119,11 @@ const PlatformDeviceCard = ({ device, index, onEdit, onViewDetails , adminView ,
   whileTap={{ scale: 0.9 }}
   onClick={() => onEdit(device)}
 >
+
+  
   <Pencil className="w-6 h-6 text-white" />
 </motion.button>
-
+)}
             </div>
 
             {/* Sending Place */}

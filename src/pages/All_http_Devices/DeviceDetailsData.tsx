@@ -14,6 +14,7 @@ import {
   deleteDeviceDataLog,
   uploadExcelApi,
   getDeviceConsumptionApi,
+  getDeviceConsumptionByDateRangeApi,
 } from "../../apis/adminApi";
 import {
   AreaChart, Area,
@@ -278,6 +279,15 @@ const DeviceDataDetails = () => {
   const [file, setFile]             = useState<File | null>(null);
   const [uploading, setUploading]   = useState(false);
   const shouldFetchLogsRef          = useRef(true);
+
+
+  // for the range 
+  // ── Range export tab state ────────────────────────────────────────────────────
+const [exportTab, setExportTab]       = useState<'period' | 'range'>('period');
+const [rangeStart, setRangeStart]     = useState('');
+const [rangeEnd, setRangeEnd]         = useState(today);
+const [rangeHighlight, setRangeHighlight] = useState<'min' | 'max' | null>(null);
+const [rangeLoading, setRangeLoading] = useState(false);
 
   const { showAlert } = useAlertBox();
 
@@ -625,6 +635,70 @@ const handleConsumptionDownload = async () => {
     XLSX.writeFile(wb, `${matchedParamKey}_${type}_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
+  const handleRangeDownload = async () => {
+  if (!deviceId || !rangeStart || !rangeEnd) return;
+  setRangeLoading(true);
+  try {
+    const res = await getDeviceConsumptionByDateRangeApi(
+      deviceId,
+      rangeStart,
+      rangeEnd,
+      rangeHighlight ?? undefined,
+    );
+
+    if (!res.success) { toast.error('Failed to fetch range consumption data'); return; }
+
+    const fieldName = res.data?.consumptionField ?? 'Value';
+    const unit      = consumptionUnit;
+    const devLabel  = deviceData?.deviceName ?? deviceId;
+
+    if (rangeHighlight) {
+      const rows: any[] = res.data?.[rangeHighlight] ?? [];
+      if (!rows.length) { toast.error('No data to export'); return; }
+
+      const excelData = rows.map((row: any) => ({
+        Date:                                                          row.date,
+        [`First Reading ${fieldName}${unit ? ` (${unit})` : ''}`]:    row.firstReading  ?? '—',
+        [`Latest Reading ${fieldName}${unit ? ` (${unit})` : ''}`]:   row.latestReading ?? '—',
+        [`${rangeHighlight === 'min' ? 'Min' : 'Max'} ${fieldName}${unit ? ` (${unit})` : ''}`]: row.consumption ?? '—',
+        'Time of Reading': row.timestamp
+          ? new Date(row.timestamp).toLocaleString('en-GB', { hour12: true })
+          : '—',
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      ws['!cols'] = Object.keys(excelData[0]).map(k => ({ wch: Math.max(k.length + 2, 18) }));
+      XLSX.utils.book_append_sheet(wb, ws, `${rangeHighlight}_consumption`);
+      XLSX.writeFile(wb, `${deviceId}_${devLabel}_${rangeHighlight}_${rangeStart}_to_${rangeEnd}.xlsx`);
+      toast.success(`${rangeHighlight === 'min' ? 'Min' : 'Max'} range consumption exported`);
+      return;
+    }
+
+    const rows: any[] = res.data?.data ?? [];
+    if (!rows.length) { toast.error('No data to export'); return; }
+
+    const excelData = rows.map((row: any) => ({
+      Date:                                                         row.date,
+      [`First Reading ${fieldName}${unit ? ` (${unit})` : ''}`]:   row.firstReading  ?? '—',
+      [`Latest Reading ${fieldName}${unit ? ` (${unit})` : ''}`]:  row.latestReading ?? '—',
+      [`Consumption ${fieldName}${unit ? ` (${unit})` : ''}`]:     row.consumption   ?? '—',
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    ws['!cols'] = Object.keys(excelData[0]).map(k => ({ wch: Math.max(k.length + 2, 18) }));
+    XLSX.utils.book_append_sheet(wb, ws, 'consumption');
+    XLSX.writeFile(wb, `${deviceId}_${devLabel}_consumption_${rangeStart}_to_${rangeEnd}.xlsx`);
+    toast.success('Range consumption exported');
+
+  } catch {
+    toast.error('Export failed');
+  } finally {
+    setRangeLoading(false);
+  }
+};
+
   const getChartInfo = () => {
     if (!Array.isArray(logs)) return { data: [], keys: [] };
 
@@ -886,7 +960,7 @@ const handleConsumptionDownload = async () => {
 
 
 
- {deviceData?.consumptionShow === true && (
+{deviceData?.consumptionShow === true && (
   <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
 
     {/* ── Header ───────────────────────────────────────────────────── */}
@@ -898,119 +972,218 @@ const handleConsumptionDownload = async () => {
       <div className="flex-1 h-px bg-gradient-to-r from-indigo-100 dark:from-indigo-700 to-transparent" />
     </div>
 
-    {/* ── Step 1: Period ───────────────────────────────────────────── */}
-    <div className="mb-5">
-      <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
-        1 — Period
-      </label>
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            { value: 'today',      label: 'Today'        },
-            { value: 'yesterday',  label: 'Yesterday'    },
-            { value: 'week',       label: 'Week'         },
-            { value: 'month',      label: 'Month'        },
-            { value: 'last30days', label: 'Last 30 days' },
-            { value: 'sixMonths',  label: '6 Months'     },
-            { value: 'completeYear',  label: 'Complete Year' },
-          ] as const
-        ).map((p) => (
-          <button
-            key={p.value}
-            onClick={() => {
-              setConsumptionPeriod(p.value);
-              setConsumptionHighlight(null);   // reset highlight on period change
-            }}
-            className={`text-xs font-bold py-1.5 px-3 rounded-xl transition-all border
-              ${consumptionPeriod === p.value
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500'
-              }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+    {/* ── Tab Switcher ─────────────────────────────────────────────── */}
+    <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl mb-5 w-fit">
+      {(['period', 'range'] as const).map((t) => (
+        <button
+          key={t}
+          onClick={() => setExportTab(t)}
+          className={`text-xs font-bold py-1.5 px-4 rounded-lg transition-all
+            ${exportTab === t
+              ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+              : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+            }`}
+        >
+          {t === 'period' ? '📅 By Period' : '📆 By Date Range'}
+        </button>
+      ))}
     </div>
 
-    {/* ── Step 2: Highlight (optional toggle) ──────────────────────── */}
-    <div className="mb-5">
-      <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
-        2 — Highlight&nbsp;
-        <span className="normal-case font-normal text-gray-300 dark:text-gray-600">
-          (optional)
-        </span>
-      </label>
-      <div className="flex gap-2">
-        {(
-          [
-            {
-              value:       'min' as const,
-              label:       'Min',
-              activeClass: 'bg-amber-500 text-white border-amber-500',
-            },
-            {
-              value:       'max' as const,
-              label:       'Max',
-              activeClass: 'bg-orange-600 text-white border-orange-600',
-            },
-          ]
-        ).map(({ value, label, activeClass }) => (
-          <button
-            key={value}
-            onClick={() =>
-              setConsumptionHighlight((prev) => (prev === value ? null : value))
+    {/* ══════════════════════════════════════════════════════════════ */}
+    {/* TAB 1 — BY PERIOD                                            */}
+    {/* ══════════════════════════════════════════════════════════════ */}
+    {exportTab === 'period' && (
+      <>
+        {/* Step 1: Period */}
+        <div className="mb-5">
+          <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            1 — Period
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {([ 
+              { value: 'today',        label: 'Today'         },
+              { value: 'yesterday',    label: 'Yesterday'     },
+              { value: 'week',         label: 'Week'          },
+              { value: 'month',        label: 'Month'         },
+              { value: 'last30days',   label: 'Last 30 days'  },
+              { value: 'sixMonths',    label: '6 Months'      },
+              { value: 'completeYear', label: 'Complete Year' },
+            ] as const).map((p) => (
+              <button
+                key={p.value}
+                onClick={() => { setConsumptionPeriod(p.value); setConsumptionHighlight(null); }}
+                className={`text-xs font-bold py-1.5 px-3 rounded-xl transition-all border
+                  ${consumptionPeriod === p.value
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500'
+                  }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Step 2: Highlight */}
+        <div className="mb-5">
+          <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            2 — Highlight <span className="normal-case font-normal text-gray-300 dark:text-gray-600">(optional)</span>
+          </label>
+          <div className="flex gap-2">
+            {([
+              { value: 'min' as const, label: 'Min', activeClass: 'bg-amber-500 text-white border-amber-500' },
+              { value: 'max' as const, label: 'Max', activeClass: 'bg-orange-600 text-white border-orange-600' },
+            ]).map(({ value, label, activeClass }) => (
+              <button
+                key={value}
+                onClick={() => setConsumptionHighlight((prev) => (prev === value ? null : value))}
+                className={`text-xs font-bold py-1.5 px-4 rounded-xl transition-all border
+                  ${consumptionHighlight === value
+                    ? activeClass
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500'
+                  }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5">
+            {consumptionHighlight === 'min' && 'Exports the lowest reading per time bucket'}
+            {consumptionHighlight === 'max' && 'Exports the highest reading per time bucket'}
+            {!consumptionHighlight && 'No highlight — exports total consumption (last − first) per bucket'}
+          </p>
+        </div>
+
+        {/* Step 3: Download */}
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            3 — Download
+          </label>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={handleConsumptionDownload}
+            disabled={consumptionChartLoading}
+            className={`flex items-center gap-2 text-white text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed
+              ${consumptionHighlight === 'min' ? 'bg-amber-500 hover:bg-amber-600'
+              : consumptionHighlight === 'max' ? 'bg-orange-600 hover:bg-orange-700'
+              : 'bg-indigo-600 hover:bg-indigo-700'}`}
+          >
+            {consumptionChartLoading
+              ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
             }
-            className={`text-xs font-bold py-1.5 px-4 rounded-xl transition-all border
-              ${consumptionHighlight === value
-                ? activeClass
-                : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500'
-              }`}
+            {consumptionHighlight === 'min' && `Download Min — ${consumptionPeriod}`}
+            {consumptionHighlight === 'max' && `Download Max — ${consumptionPeriod}`}
+            {!consumptionHighlight && `Download Consumption — ${consumptionPeriod}`}
+          </motion.button>
+          <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5 font-mono">
+            {`${deviceId}_${deviceData?.deviceName ?? ''}_${consumptionHighlight ?? 'consumption'}_${consumptionPeriod}_${fmtDateDMY(new Date())}.xlsx`}
+          </p>
+        </div>
+      </>
+    )}
+
+    {/* ══════════════════════════════════════════════════════════════ */}
+    {/* TAB 2 — BY DATE RANGE                                        */}
+    {/* ══════════════════════════════════════════════════════════════ */}
+    {exportTab === 'range' && (
+      <>
+        {/* Step 1: Date Range */}
+        <div className="mb-5">
+          <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            1 — Date Range
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1.5">From</p>
+              <PickerInput
+                type="date"
+                value={deviceData.installationData?.trim() ?? ""}
+                onChange={(e) => setRangeStart(e.target.value)}
+                max={rangeEnd || today}
+              />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1.5">To</p>
+              <PickerInput
+                type="date"
+                value={rangeEnd}
+                onChange={(e) => setRangeEnd(e.target.value)}
+                min={rangeStart}
+                max={today}
+              />
+            </div>
+          </div>
+          {rangeStart && rangeEnd && (
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
+              {Math.ceil((new Date(rangeEnd).getTime() - new Date(rangeStart).getTime()) / (1000 * 60 * 60 * 24)) + 1} days selected
+              &nbsp;·&nbsp;
+              {Math.ceil((new Date(rangeEnd).getTime() - new Date(rangeStart).getTime()) / (1000 * 60 * 60 * 24)) > 31
+                ? '📆 Monthly buckets'
+                : '📅 Daily buckets'}
+            </p>
+          )}
+        </div>
+
+        {/* Step 2: Highlight */}
+        <div className="mb-5">
+          <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            2 — Highlight <span className="normal-case font-normal text-gray-300 dark:text-gray-600">(optional)</span>
+          </label>
+          <div className="flex gap-2">
+            {([
+              { value: 'min' as const, label: 'Min', activeClass: 'bg-amber-500 text-white border-amber-500' },
+              { value: 'max' as const, label: 'Max', activeClass: 'bg-orange-600 text-white border-orange-600' },
+            ]).map(({ value, label, activeClass }) => (
+              <button
+                key={value}
+                onClick={() => setRangeHighlight((prev) => (prev === value ? null : value))}
+                className={`text-xs font-bold py-1.5 px-4 rounded-xl transition-all border
+                  ${rangeHighlight === value
+                    ? activeClass
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500'
+                  }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Step 3: Download */}
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            3 — Download
+          </label>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={handleRangeDownload}
+            disabled={rangeLoading || !rangeStart || !rangeEnd}
+            className={`flex items-center gap-2 text-white text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed
+              ${rangeHighlight === 'min' ? 'bg-amber-500 hover:bg-amber-600'
+              : rangeHighlight === 'max' ? 'bg-orange-600 hover:bg-orange-700'
+              : 'bg-indigo-600 hover:bg-indigo-700'}`}
           >
-            {label}
-          </button>
-        ))}
-      </div>
-      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5">
-        {consumptionHighlight === 'min' && 'Exports the lowest reading per time bucket'}
-        {consumptionHighlight === 'max' && 'Exports the highest reading per time bucket'}
-        {!consumptionHighlight        && 'No highlight — exports total consumption (last − first) per bucket'}
-      </p>
-    </div>
-
-    {/* ── Step 3: Download ─────────────────────────────────────────── */}
-    <div>
-      <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
-        3 — Download
-      </label>
-      <motion.button
-        whileTap={{ scale: 0.95 }}
-        onClick={handleConsumptionDownload}
-        disabled={consumptionChartLoading}
-        className={`flex items-center gap-2 text-white text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed
-          ${consumptionHighlight === 'min' ? 'bg-amber-500 hover:bg-amber-600'
-          : consumptionHighlight === 'max' ? 'bg-orange-600 hover:bg-orange-700'
-          : 'bg-indigo-600 hover:bg-indigo-700'}`}
-      >
-        {consumptionChartLoading ? (
-          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-        )}
-        {consumptionHighlight === 'min' && `Download Min — ${consumptionPeriod}`}
-        {consumptionHighlight === 'max' && `Download Max — ${consumptionPeriod}`}
-        {!consumptionHighlight         && `Download Consumption — ${consumptionPeriod}`}
-      </motion.button>
-
-      {/* filename preview */}
-      <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5 font-mono">
-        {`${deviceId}_${deviceData?.deviceName ?? ''}_${consumptionHighlight ?? 'consumption'}_${consumptionPeriod}_${fmtDateDMY(new Date())}.xlsx`}
-      </p>
-    </div>
+            {rangeLoading
+              ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            }
+            {rangeHighlight === 'min' && 'Download Min — Range'}
+            {rangeHighlight === 'max' && 'Download Max — Range'}
+            {!rangeHighlight && 'Download Consumption — Range'}
+          </motion.button>
+          {rangeStart && rangeEnd && (
+            <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5 font-mono">
+              {`${deviceId}_${deviceData?.deviceName ?? ''}_${rangeHighlight ?? 'consumption'}_${rangeStart}_to_${rangeEnd}.xlsx`}
+            </p>
+          )}
+        </div>
+      </>
+    )}
 
   </div>
 )}
@@ -1027,14 +1200,14 @@ const handleConsumptionDownload = async () => {
             <div>
               <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Start Date & Time</label>
               <div className="flex gap-2">
-                <PickerInput type="date" value={startDate} onChange={trackChange(setStartDate, setIsDateTimeChanged)} max={endDate} min={activationDate || "2025-01-01"} />
+                <PickerInput type="date" value={deviceData.installationData?.trim() ?? ""} onChange={trackChange(setStartDate, setIsDateTimeChanged)}   min = {deviceData.installationData?.trim() ?? ""} />
                 <PickerInput type="time" value={startTime} onChange={trackChange(setStartTime, setIsDateTimeChanged)} />
               </div>
             </div>
             <div>
               <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">End Date & Time</label>
               <div className="flex gap-2">
-                <PickerInput type="date" value={endDate} onChange={trackChange(setEndDate, setIsDateTimeChanged)} min={activationDate || "2025-01-01"} max={today} />
+                <PickerInput type="date" value={endDate} onChange={trackChange(setEndDate, setIsDateTimeChanged)}  min = {deviceData.installationData?.trim() ?? ""} max={today} />
                 <PickerInput type="time" value={endTime} onChange={trackChange(setEndTime, setIsDateTimeChanged)} />
               </div>
             </div>
